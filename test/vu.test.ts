@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
-import { scope } from "jolly-coop"
+import { scope, toResult } from "jolly-coop"
 import { runVU } from "../src/vu.js"
 import { RateLimiter } from "../src/rate.js"
 import type { Sample } from "../src/types.js"
@@ -22,7 +22,7 @@ describe("runVU", () => {
   it("URL mode: loop produces samples until signal fires", async () => {
     const samples: Sample[] = []
     const completed = { n: 0 }
-    await scope({ timeout: 400 }, async s => {
+    await toResult(scope({ timeout: 400 }, async s => {
       s.spawn(() => runVU({
         index: 0,
         mode: { kind: "url", req: { url: baseUrl, method: "GET", headers: {}, userAgent: "t", timeoutMs: 2000 } },
@@ -31,7 +31,7 @@ describe("runVU", () => {
         onSample: x => samples.push(x),
         completed,
       }))
-    }).catch(() => {})
+    }))
     expect(samples.length).toBeGreaterThan(0)
     expect(samples.filter(x => x.ok).length).toBeGreaterThan(0)
     // At most one tail error sample when scope timeout aborts in-flight fetch.
@@ -42,7 +42,7 @@ describe("runVU", () => {
     const samples: Sample[] = []
     const completed = { n: 0 }
     let iterations = 0
-    await scope({ timeout: 300 }, async s => {
+    await toResult(scope({ timeout: 300 }, async s => {
       s.spawn(() => runVU({
         index: 0,
         mode: {
@@ -57,7 +57,7 @@ describe("runVU", () => {
         onSample: x => samples.push(x),
         completed,
       }))
-    }).catch(() => {})
+    }))
     expect(iterations).toBeGreaterThan(2)
     const errs = samples.filter(x => !x.ok)
     expect(errs.length).toBeGreaterThan(0)
@@ -70,7 +70,7 @@ describe("runVU", () => {
     const target = 50
     const durationMs = 3_000
     const tZero = performance.now()
-    await scope({ timeout: durationMs }, async s => {
+    await toResult(scope({ timeout: durationMs }, async s => {
       for (let i = 0; i < 5; i++) {
         s.spawn(() => runVU({
           index: i,
@@ -82,7 +82,7 @@ describe("runVU", () => {
           completed,
         }))
       }
-    }).catch(() => {})
+    }))
     const elapsedSec = (performance.now() - tZero) / 1_000
     const observed = samples.length / elapsedSec
     expect(observed).toBeGreaterThan(target * 0.9)

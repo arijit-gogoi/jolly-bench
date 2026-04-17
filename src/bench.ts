@@ -1,4 +1,4 @@
-import { scope, ScopeCancelledError, ScopeDoneSignal, TimeoutError } from "jolly-coop"
+import { scope, ScopeCancelledError } from "jolly-coop"
 import { Stats } from "./stats.js"
 import { runProgress } from "./progress.js"
 import { runVU, type VuMode } from "./vu.js"
@@ -21,10 +21,10 @@ import type { BenchOptions, BenchResult, EndedBy, Sample } from "./types.js"
  * Stats lives OUTSIDE the scope so partial results survive Ctrl-C / abort —
  * that's the whole reason a load tester is useful when things go wrong.
  *
- * On scope exit:
- *   - deadline elapsed → TimeoutError → endedBy "drained"
- *   - parent signal aborted → endedBy "abort"
- *   - any other throw → endedBy "error"
+ * On scope exit (per jolly-coop 0.3.3 settle-reason precedence):
+ *   - deadline elapsed → DeadlineError (ScopeCancelledError .cause "deadline") → "drained"
+ *   - parent signal aborted → err === opts.signal.reason (identity preserved) → "abort"
+ *   - any other throw → "error"
  */
 export async function runBench(opts: BenchOptions, progress = true): Promise<BenchResult> {
   if (!opts.url && !opts.scenario && !opts.scenarioPath) {
@@ -87,9 +87,7 @@ export async function runBench(opts: BenchOptions, progress = true): Promise<Ben
       root.done()
     })
   } catch (err) {
-    if (err instanceof TimeoutError) {
-      endedBy = "drained"
-    } else if (err instanceof ScopeDoneSignal || err instanceof ScopeCancelledError) {
+    if (err instanceof ScopeCancelledError) {
       endedBy = "drained"
     } else if (opts.signal?.aborted) {
       endedBy = "abort"
