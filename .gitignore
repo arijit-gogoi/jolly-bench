@@ -3,5 +3,6 @@ dist/
 coverage/
 *.log
 *.json.out
+*.ndjson
 .DS_Store
 .claude/settings.local.json
