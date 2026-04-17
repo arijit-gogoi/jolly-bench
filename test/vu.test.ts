@@ -64,11 +64,11 @@ describe("runVU", () => {
     if (errs[0] && !errs[0].ok) expect(errs[0].error).toBe("CustomError")
   })
 
-  it("rate limiter: observed rps approximates target", async () => {
+  it("rate limiter: observed rps within 10% of target (PLAN §9)", async () => {
     const samples: Sample[] = []
     const completed = { n: 0 }
     const target = 50
-    const durationMs = 1_000
+    const durationMs = 3_000
     const tZero = performance.now()
     await scope({ timeout: durationMs }, async s => {
       for (let i = 0; i < 5; i++) {
@@ -85,8 +85,7 @@ describe("runVU", () => {
     }).catch(() => {})
     const elapsedSec = (performance.now() - tZero) / 1_000
     const observed = samples.length / elapsedSec
-    // Allow wide tolerance — first VUs burn through backlog before throttle catches up.
-    expect(observed).toBeGreaterThan(target * 0.5)
-    expect(observed).toBeLessThan(target * 1.5)
-  })
+    expect(observed).toBeGreaterThan(target * 0.9)
+    expect(observed).toBeLessThan(target * 1.1)
+  }, 10_000)
 })
